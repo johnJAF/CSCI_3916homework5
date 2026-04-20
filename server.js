@@ -121,7 +121,8 @@ router.route('/movies')
                 title: req.body.title,
                 releaseDate: req.body.releaseDate,
                 genre: req.body.genre,
-                actors: req.body.actors
+                actors: req.body.actors,
+                imageUrl: req.body.imageUrl
             });
 
             const savedMovie = await movie.save();
@@ -227,7 +228,8 @@ router.route('/movies')
                     title: req.body.title,
                     releaseDate: req.body.releaseDate,
                     genre: req.body.genre,
-                    actors: req.body.actors
+                    actors: req.body.actors,
+                    imageUrl: req.body.imageUrl,
                 },
                 {
                     new: true,

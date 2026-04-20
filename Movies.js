@@ -48,7 +48,11 @@ const MovieSchema = new Schema({
             },
             message: 'movie must contain at least one actor'
         }
-    }
+    },
+    imageUrl: {
+        type: String,
+        required: [true, 'image url is required']
+    },
 });
 
 module.exports = mongoose.model('Movie', MovieSchema);
