@@ -73,17 +73,48 @@ router.post('/signin', async (req, res) => { // Use async/await
 
 router.route('/movies')
     .get(authJwtController.isAuthenticated, async (req, res) => {
-        try {
+    try {
+        const includeReviews = req.query.reviews === 'true';
+
+        if (!includeReviews) {
             const movies = await Movie.find({});
             return res.status(200).json(movies);
-        } catch (err) {
-            console.error(err);
-            return res.status(500).json({
-                success: false,
-                message: 'failed to retrieve movies'
-            });
         }
-    })
+
+        const movies = await Movie.aggregate([
+            {
+                $lookup: {
+                    from: 'reviews',
+                    localField: '_id',
+                    foreignField: 'movieId',
+                    as: 'movieReviews'
+                }
+            },
+            {
+                $addFields: {
+                    avgRating: {
+                        $cond: [
+                            { $gt: [{ $size: '$movieReviews' }, 0] },
+                            { $avg: '$movieReviews.rating' },
+                            0
+                        ]
+                    }
+                }
+            },
+            {
+                $sort: { avgRating: -1 }
+            }
+        ]);
+
+        return res.status(200).json(movies);
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({
+            success: false,
+            message: 'failed to retrieve movies'
+        });
+    }
+})
     .post(authJwtController.isAuthenticated, async (req, res) => {
         try {
             const movie = new Movie({
@@ -112,14 +143,28 @@ router.route('/movies')
     .get(authJwtController.isAuthenticated, async (req, res) => {
         try {
             const movieId = req.params.movieparameter;
-
+            const includeReviews = req.query.reviews === 'true';
+    
             if (!mongoose.Types.ObjectId.isValid(movieId)) {
                 return res.status(400).json({
                     success: false,
                     message: 'invalid movie id'
                 });
             }
-
+    
+            if (!includeReviews) {
+                const movie = await Movie.findById(movieId);
+    
+                if (!movie) {
+                    return res.status(404).json({
+                        success: false,
+                        message: 'movie not found'
+                    });
+                }
+    
+                return res.status(200).json(movie);
+            }
+    
             const result = await Movie.aggregate([
                 {
                     $match: {
@@ -144,27 +189,18 @@ router.route('/movies')
                             ]
                         }
                     }
-                },
-                {
-                    $project: {
-                        title: 1,
-                        releaseDate: 1,
-                        genre: 1,
-                        actors: 1,
-                        reviews: 1,
-                        avgRating: { $round: ['$avgRating', 1] }
-                    }
                 }
             ]);
-
+    
             if (!result || result.length === 0) {
                 return res.status(404).json({
                     success: false,
                     message: 'movie not found'
                 });
             }
-
+    
             return res.status(200).json(result[0]);
+    
         } catch (err) {
             console.error(err);
             return res.status(500).json({
